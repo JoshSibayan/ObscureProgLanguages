@@ -110,7 +110,9 @@
 ;; Note: REMEMBER NOT TO USE IMPERATIVE FUNCTIONS!
 
 ;; Determine category of object
-(define (expr-eval expr)
+;; Evaluate list recursively
+;; Referred to hashexample.scm example
+(define (eval-expr expr)
 	(cond ((string? expr) expr)
 	      ((number? expr) expr)
 	      ((hash-has-key? *symbol-table* expr)
@@ -122,15 +124,35 @@
 				      	    ((vector? head)
 					            (vector-ref head (cadr expr)))
 			                    ((procedure? head)
-				                    (apply head (map (lambda (x) (expr-eval x)) (cdr expr))))
+				                    (apply head (map (lambda (x) (eval-expr x)) (cdr expr))))
 				      (else (die "Unable to evaluate espression type"))))
 			       (die (list (car expr) " not found in table\n"))))))
 
+;; Create array
+(define (arr expr)
+	(set! expr (car expr))
+	(let ((arr (make-vector (eval-expr (cadr expr)) (car expr))))
+		(symbol-put! (car expr) (+ (eval-expr (cadr expr)) 1))))
 
+;; Create variable
+(define (var expr)
+	(symbol-put! (car expr) (eval-expr (cadr expr))))
 
-
+;; Evaluate when given print argument
 (define (eval-print expr)
-	(map (lambda (x) (display (expr-eval))) expr)
+	(map (lambda (x) (display (eval-expr))) expr)
 	(newline))
+
+
+
+;; Check validity of arguments passed, else return usage-exit
+;; When argument valid, set sbprogfile equal to it
+;; Set program equal to inputfile commands
+(define (main arglist)
+	(if (or (null? arglist) (not (null? (cdr arglist))))
+		(usage-exit)
+		(let* ((sbprogfile (car arglist))
+		       (program (readlist-from-inputfile sbprogfile)))
+		      (write-program-by-line sbprogfile program))))
 
 (main (vector->list (current-command-line-arguments)))
