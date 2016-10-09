@@ -118,11 +118,10 @@
 	      ((hash-has-key? *symbol-table* expr)
 	              (hash-ref *symbol-table* expr))
 	      ((list? expr)
-	              (if (hash-has-key? *symbol-table* (car expr))
+	              (if (hash-has-key? *symbol-table* (car expr)) 
 		              (let ((head (hash-ref *symbol-table* (car expr))))
 				      (cond ((number? head) head)
-				      	    ((vector? head)
-					            (vector-ref head (cadr expr)))
+				      	    ((vector? head) (vector-ref head (cadr expr)))
 			                    ((procedure? head)
 				                    (apply head (map (lambda (x) (eval-expr x)) (cdr expr))))
 				      (else (die "Unable to evaluate espression type"))))
@@ -143,7 +142,50 @@
 	(map (lambda (x) (display (eval-expr))) expr)
 	(newline))
 
+(define (input-count expr count)
+	(if (null? expr) count (let ((input (read))) (if (eof-object? input) -1
+		(begin (symbol-put! (car expr) input) 
+		(set! count (+ 1 count)) (input-count (cdr expr) count))))))
 
+(define length (lambda (x)
+	(if (null? x) 0 (+ (length (cdr x)) 1))))
+
+(define (eval-input expr)
+	(symbol-put! 'eval-count 0)
+	(if (null? (car expr)) 
+		(symbol-put! 'eval-count - 1) (begin (symbol-put! 'eval-count (input-count expr 0)))))
+
+;; No practical loops in scheme, run repeatedly through tail-recursion using accumulator
+(define (eval-line program line-num)
+	(when (> (length program) line-num)
+		(let ((line (list-ref program line-num)))
+			(cond ((= (length line) 3)
+			              (set! line (cddr line)) (run-line (car line) program line-num))
+			      ((and (= (length line) 2) (list? (cadr line)))
+				      (set! line (cdr line)) (run-line (car line) program line-num))
+			      (else (eval-line program (+ line-num 1)))))))
+
+(define (run-line command program line-num)
+	(when (not (hash-has-key? *function-table* (car command)))
+		(die "~s invalid command" (car command)))
+	(cond ((eq? (car command) 'goto) 
+	              (eval-line program (hash-ref *label-table* (cdr command))))
+	      ((eq? (car command) 'if)
+	              (if (eval-expr (car (cdr command)))
+		              (eval-line program (hash-ref *label-table* (cadr (cdr command))))
+			      (eval-line program (+ line-num 1))))
+	      ((eq? (car command) 'print)
+	              (if (null? (cdr command))
+		              (newline) (eval-print (cdr command))) 
+			      (eval-line program (+ line-num 1)))))
+
+(define (put-label program)
+	(map (lambda (line)
+		(when (not (null? line))
+			(when (or (= 3 (length line)) 
+			      (and (= 2 (length line)) 
+                              (not (list? (cadr line)))))
+			(hash-set! *label-table* (cadr line) (- (car line) 1))))) program))
 
 ;; Check validity of arguments passed, else return usage-exit
 ;; When argument valid, set sbprogfile equal to it
