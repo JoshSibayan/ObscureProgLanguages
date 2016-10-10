@@ -71,12 +71,12 @@
 		(symbol-put! (car pair) (cadr pair)))
 	`(
 
-		(log10_2 0.301029995663981195213738894724493026768189881)
-		(sqrt_2  1.414213562373095048801688724209698078569671875)
-		(e	 2.718281828459045235360287471352662497757247093)
-		(pi	 3.141592653589793238462643383279502884197169399)
+		(log10_2 ,0.301029995663981195213738894724493026768189881)
+		(sqrt_2  ,1.414213562373095048801688724209698078569671875)
+		(e	 ,2.718281828459045235360287471352662497757247093)
+		(pi	 ,3.141592653589793238462643383279502884197169399)
 		(div	 ,(lambda (x y) (floor (/ x y))))
-		(log10	 ,(lambda (x) (/ (log x) (log 10.0))))
+		(log10	 ,(lambda (x)   (/ (log x) (log 10.0))))
 		(mod	 ,(lambda (x y) (- x (* (div x y) y))))
 		(quot	 ,(lambda (x y) (truncate (/ x y))))
 		(rem	 ,(lambda (x y) (- x (* (quot x y) y))))
@@ -127,21 +127,25 @@
 				      (else (die "Unable to evaluate espression type"))))
 			       (die (list (car expr) " not found in table\n"))))))
 
-;; Create array
-(define (arr expr)
+;; Translate sbir dim statements
+;; Declare array
+(define (eval-dim expr)
 	(set! expr (car expr))
 	(let ((arr (make-vector (eval-expr (cadr expr)) (car expr))))
 		(symbol-put! (car expr) (+ (eval-expr (cadr expr)) 1))))
 
+;; Translate sbir let statements
 ;; Create variable
-(define (var expr)
+(define (eval-let expr)
 	(symbol-put! (car expr) (eval-expr (cadr expr))))
 
+;; Translate sbir print statements
 ;; Evaluate when given print argument
 (define (eval-print expr)
-	(map (lambda (x) (display (eval-expr))) expr)
+	(map (lambda (x) (display (eval-expr x))) expr)
 	(newline))
 
+;; Yet another recursive function to keep track of count variable
 (define (input-count expr count)
 	(if (null? expr) count (let ((input (read))) (if (eof-object? input) -1
 		(begin (symbol-put! (car expr) input) 
@@ -150,10 +154,11 @@
 (define length (lambda (x)
 	(if (null? x) 0 (+ (length (cdr x)) 1))))
 
+;; Take input for symbol-table
 (define (eval-input expr)
 	(symbol-put! 'eval-count 0)
 	(if (null? (car expr)) 
-		(symbol-put! 'eval-count - 1) (begin (symbol-put! 'eval-count (input-count expr 0)))))
+		(symbol-put! 'eval-count -1) (begin (symbol-put! 'eval-count (input-count expr 0)))))
 
 ;; No practical loops in scheme, run repeatedly through tail-recursion using accumulator
 (define (eval-line program line-num)
@@ -165,11 +170,12 @@
 				      (set! line (cdr line)) (run-line (car line) program line-num))
 			      (else (eval-line program (+ line-num 1)))))))
 
+;; Read in and run each line from sbir input files
 (define (run-line command program line-num)
 	(when (not (hash-has-key? *function-table* (car command)))
 		(die "~s invalid command" (car command)))
 	(cond ((eq? (car command) 'goto) 
-	              (eval-line program (hash-ref *label-table* (cdr command))))
+	              (eval-line program (hash-ref *label-table* (cadr command))))
 	      ((eq? (car command) 'if)
 	              (if (eval-expr (car (cdr command)))
 		              (eval-line program (hash-ref *label-table* (cadr (cdr command))))
@@ -177,8 +183,12 @@
 	      ((eq? (car command) 'print)
 	              (if (null? (cdr command))
 		              (newline) (eval-print (cdr command))) 
-			      (eval-line program (+ line-num 1)))))
+			      (eval-line program (+ line-num 1)))
+		      (else ((hash-ref *function-table* (car command)) (cdr command))
+		              (eval-line program (+ line-num 1)))))
 
+;; Put labels into hash table
+;; No need to tokenize input, sbir programs in list form already
 (define (put-label program)
 	(map (lambda (line)
 		(when (not (null? line))
@@ -195,6 +205,21 @@
 		(usage-exit)
 		(let* ((sbprogfile (car arglist))
 		       (program (readlist-from-inputfile sbprogfile)))
-		      (write-program-by-line sbprogfile program))))
+		       (put-label program) (eval-line program 0))))
+			
+;; Create hash table to translate sbir into scheme functions
+(for-each
+	(lambda (pair)
+		(hash-set! *function-table* (car pair) (cadr pair)))
+	`(
+
+		(if       (void))
+		(goto     (void))
+		(print    ,eval-print)
+		(let      ,eval-let)
+		(dim      ,eval-dim)
+		(input    ,eval-input)
+		
+	))
 
 (main (vector->list (current-command-line-arguments)))
