@@ -112,27 +112,6 @@
 
 	))
 
-;; Create hash table to translate sbir into scheme functions
-(for-each
-	(lambda (pair)
-		(hash-set! *function-table* (car pair) (cadr pair)))
-	`(
-
-	  	;; The two Expressions are compared according to the given Relop, and if
-		;; the comparison is true, control transfers to the statement, as for the
-		;; goto statement. Note : <> is the symbol for not equal. The others
-		;; should be obvious.
-		(if       (void))
-	  	;; Control transfers to the statement referred to by the Label. An error
-		;; occurs if the Label is not defined.
-		(goto     (void))
-		(print    ,eval-print)
-		(let      ,eval-let)
-		(dim      ,eval-dim)
-		(input    ,eval-input)
-		
-	))
-
 ;; Length helper function
 (define length (lambda (x)
 	(if (null? x) 0 (+ (length (cdr x)) 1))))
@@ -267,5 +246,26 @@
 		(let* ((sbprogfile (car arglist))
 		       (program (readlist-from-inputfile sbprogfile)))
 		       (put-label program) (eval-line program 0))))
-			
+	
+;; Create hash table to translate sbir into scheme functions
+(for-each
+	(lambda (pair)
+		(hash-set! *function-table* (car pair) (cadr pair)))
+	`(
+
+	  	;; The two Expressions are compared according to the given Relop, and if
+		;; the comparison is true, control transfers to the statement, as for the
+		;; goto statement. Note : <> is the symbol for not equal. The others
+		;; should be obvious.
+		(if       (void))
+	  	;; Control transfers to the statement referred to by the Label. An error
+		;; occurs if the Label is not defined.
+		(goto     (void))
+		(print    ,eval-print)
+		(let      ,eval-let)
+		(dim      ,eval-dim)
+		(input    ,eval-input)
+		
+	))
+	
 (main (vector->list (current-command-line-arguments)))
