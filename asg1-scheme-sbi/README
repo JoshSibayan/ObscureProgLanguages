@@ -1,0 +1,14 @@
+Joshua Sibayan
+jbsibaya@ucsc.edu
+1401498
+
+Notes
+Still getting errors for following test files:
+
+10-exprs.sb
+	Confounding division by zero error.
+
+32-factorial.sbir
+33-quadratic.sbir
+40-sort-array.sbir
+	Same error type due to parsing input from read statements. Evaluating instead of passing functions when passed to hash-ref.
