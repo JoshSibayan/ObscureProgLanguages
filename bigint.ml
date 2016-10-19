@@ -45,7 +45,21 @@ module Bigint = struct
                    in  strcat ""
                        ((if sign = Pos then "" else "-") ::
                         (map string_of_int reversed))
-
+
+    (* Function to indicate signs and place largest passed number on top *)
+    let rec check list1 list2 = match (list1, list2) with
+        | list1, []                 -> 1
+	| [], list2                 -> 0
+	| car1::cdr1, car2::cdr2    ->
+	  if car1 > car2
+	  then 1
+	  else if car2 > car1
+	  then 0
+	  else check cdr1 cdr2
+
+    (* Handle all cases for addition *)
+    (* Large numbers split into lists with single-digit elements *)
+    (* Lists cannot support signed ints, so lists passed into add() as Bigints *)
     let rec add' list1 list2 carry = match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, 0       -> list2
@@ -55,10 +69,26 @@ module Bigint = struct
           let sum = car1 + car2 + carry
           in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
+    (* Modified original add to support signed ints *)
+    (* Handle all case combinations for signed addition *)
+    (* Calls made to sub' to fix negative addition cases *)
     let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
         if neg1 = neg2
         then Bigint (neg1, add' value1 value2 0)
-        else zero
+        else if (neg1 = Pos && neg2 = Neg)
+	then (
+	    if (check value1 value2) = 1
+	    then Bigint (neg1, sub' value1 value2 0)
+	    else Bigint (neg2, sub' value2 value1 0) )
+	else if (neg1 = Neg && neg2 = Pos)
+	then (
+	    if (check value1 value2) = 1
+	    then Bigint (neg1, sub' value1 value2 0)
+	    else Bigint (neg2, sub' value2 value1 0) )
+	else (
+	    if (check value1 value2) = 1
+	    then Bigint (neg1, sub' value1 value2 0)
+	    else Bigint (neg2, sub' value2 value1 0) )
 
     let sub = add
 
