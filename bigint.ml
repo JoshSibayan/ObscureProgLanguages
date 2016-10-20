@@ -46,8 +46,10 @@ module Bigint = struct
                        ((if sign = Pos then "" else "-") ::
                         (map string_of_int reversed))
 
-    (* Function to indicate signs and place largest passed number on top *)
-    let rec check list1 list2 = match (list1, list2) with
+    (* Indicate signs and place largest passed number on top *)
+    (* Assume functions always possess carry or borrow, if none then set to 0 *)
+    (* Move from low order to high order digits using tail recursion *)
+    let rec cmp list1 list2 = match (list1, list2) with
         | list1, []                 -> 1
 	| [], list2                 -> 0
 	| car1::cdr1, car2::cdr2    ->
@@ -55,11 +57,12 @@ module Bigint = struct
 	  then 1
 	  else if car2 > car1
 	  then 0
-	  else check cdr1 cdr2
+	  else cmp cdr1 cdr2
 
     (* Handle all cases for addition *)
     (* Large numbers split into lists with single-digit elements *)
     (* Lists cannot support signed ints, so lists passed into add() as Bigints *)
+    (* ( (car1 + car2 + carry) + 10) % 10 *)
     let rec add' list1 list2 carry = match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, 0       -> list2
@@ -69,34 +72,89 @@ module Bigint = struct
           let sum = car1 + car2 + carry
           in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
+    (* Basically mirrors original add' function in syntax and use *)
+    (* ( (car1 - car2 - carry) + 10) % 10 *)
+    let rec sub' list1 list2 carry = match (list1, list2, carry) with
+        | list1, [], 0       -> list1
+        | [], list2, 0       -> list2
+        | list1, [], carry   -> sub' list1 [carry] 0
+        | [], list2, carry   -> sub' [carry] list2 0
+        | car1::cdr1, car2::cdr2, carry ->
+          let diff = car1 - car2 - carry
+          in  diff mod radix :: sub' cdr1 cdr2 (diff / radix)
+
+    (* Function order MATTERS in ocaml *)
+    (* sub needed by add to operate on signed integers, so it goes first *)
+    let sub (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
+        if (sign1 = Pos && sign2 = Pos)
+        then (
+            if (cmp value1 value2) = 1
+            then Bigint (sign1, sub' value1 value2 0)
+            else Bigint (Neg, sub' value2 value1 0) )
+        else if (sign1 = Neg && sign2 = Neg)
+        then (
+            if (cmp value1 value2) = 1
+            then Bigint (sign1, add' value1 value2 0)
+            else Bigint (Pos, sub' value2 value1 0) )
+        else Bigint (sign1, add' value1 value2 0) 
+
     (* Modified original add to support signed ints *)
     (* Handle all case combinations for signed addition *)
     (* Calls made to sub' to fix negative addition cases *)
-    let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        if neg1 = neg2
-        then Bigint (neg1, add' value1 value2 0)
-        else if (neg1 = Pos && neg2 = Neg)
+    let add (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
+        if sign1 = sign2
+        then Bigint (sign1, add' value1 value2 0)
+        else if (sign1 = Pos && sign2 = Neg)
 	then (
-	    if (check value1 value2) = 1
-	    then Bigint (neg1, sub' value1 value2 0)
-	    else Bigint (neg2, sub' value2 value1 0) )
-	else if (neg1 = Neg && neg2 = Pos)
+	    if (cmp value1 value2) = 1
+	    then Bigint (sign1, sub' value1 value2 0)
+	    else Bigint (sign2, sub' value2 value1 0) )
+	else if (sign1 = Neg && sign2 = Pos)
 	then (
-	    if (check value1 value2) = 1
-	    then Bigint (neg1, sub' value1 value2 0)
-	    else Bigint (neg2, sub' value2 value1 0) )
+	    if (cmp value1 value2) = 1
+	    then Bigint (sign1, sub' value1 value2 0)
+	    else Bigint (sign2, sub' value2 value1 0) )
 	else (
-	    if (check value1 value2) = 1
-	    then Bigint (neg1, sub' value1 value2 0)
-	    else Bigint (neg2, sub' value2 value1 0) )
+	    if (cmp value1 value2) = 1
+	    then Bigint (sign1, sub' value1 value2 0)
+	    else Bigint (sign2, sub' value2 value1 0) )
 
-    let sub = add
+    (* To multiply, add correct elements of right column in each list *)
+    let rec mul' list1 list2 =
+        if (car list2) = 1
+        then list1
+        else (add' list1 (mul' list1 (sub' list22 [1] 0) ) 0)
 
-    let mul = add
+    (* Handle all case combinations for signed multiplication *)
+    let mul (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
+        if sign1 = sign2
+        then Bigint (Pos, mul' value1 value2)
+        else Bigint (Neg, mul' value1 value2) 
 
-    let div = add
+    (* To divide, add correct elements of left column in each list *)
+    (* Use accumulator method for tail recursion *)
+    let rec div' list1 list2 sol =
+        if (cmp list1 list2) = 0
+        then (sol, list1)
+        else (div' (sub' list1 list2 0) list2 (add' sol [1] 0) )
 
-    let rem = add
+    (* Handle all case combinations for signed division *)
+    (* Handle division by zero case specifically *)
+    let div (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
+        if (car value2) <> 0 then (
+            if sign1 = sign2
+            then Bigint (Pos, fst (div' value1 value2 [0]) )
+            else Bigint (Neg, fst (div' value1 value2 [0]) ) )
+        else (printf "Division by zero error\n"; Bigint (Pos, [0]) ) 
+
+    (* Separate remainder function instead of returning it with division *)
+    let rem (Bigint (sign1, list1)) (Bigint (sign2, list2)) = 
+        if (car list2) <> 0 then (
+            if sign1 = sign2
+            then Bigint (sign1, snd (div' list1 list2 [0]) )
+            else Bigint (Neg, snd (div' list1 list2 [0]) )
+        )
+        else (printf "Remainder by zero error\n"; Bigint (Pos, [0]) )
 
     let pow = add
 
