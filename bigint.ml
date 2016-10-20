@@ -123,7 +123,7 @@ module Bigint = struct
     let rec mul' list1 list2 =
         if (car list2) = 1
         then list1
-        else (add' list1 (mul' list1 (sub' list22 [1] 0) ) 0)
+        else (add' list1 (mul' list1 (sub' list2 [1] 0) ) 0)
 
     (* Handle all case combinations for signed multiplication *)
     let mul (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
@@ -156,6 +156,20 @@ module Bigint = struct
         )
         else (printf "Remainder by zero error\n"; Bigint (Pos, [0]) )
 
-    let pow = add
+    (* Same logic as mul' except with a much deeper recursive call stack *)
+    let rec pow' list1 list2 = 
+        if (car list2) = 1
+        then list1
+        else (mul' list1 (pow' list1 (sub' list2 [1] 0) ) )
+    
+    (* Completely dependent on previous functions *)
+    let pow (Bigint (sign1, value1)) (Bigint (sign2, value2)) =
+        if sign2 = Neg
+        then (Bigint (Pos, []))
+        else if sign1 = Pos
+            then (Bigint (sign1, pow' value1 value2))
+            else if rem (Bigint (Pos, value2)) (Bigint (Pos, [2])) = (Bigint (Pos, [1]) )
+                then (Bigint (Neg, pow' value1 value2))
+                else (Bigint (Pos, pow' value1 value2))
 
 end
