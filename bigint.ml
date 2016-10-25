@@ -144,8 +144,10 @@ module Bigint = struct
         if (car value2) <> 0 then (
             if sign1 = sign2
             then Bigint (Pos, fst (div' value1 value2 [0]) )
-            else Bigint (Neg, fst (div' value1 value2 [0]) ) )
-        else (printf "Division by zero error\n"; Bigint (Pos, [0]) ) 
+            else Bigint (Neg, fst (div' value1 value2 [0]) )
+        ) else ( 
+            printf "Division by zero error\n";
+            Bigint (Pos, [0]) ) 
 
     (* Separate remainder function instead of returning it with division *)
     let rem (Bigint (sign1, list1)) (Bigint (sign2, list2)) = 
@@ -153,8 +155,7 @@ module Bigint = struct
             if sign1 = sign2
             then Bigint (sign1, snd (div' list1 list2 [0]) )
             else Bigint (Neg, snd (div' list1 list2 [0]) )
-        )
-        else (printf "Remainder by zero error\n"; Bigint (Pos, [0]) )
+        ) else Bigint (Pos, [0])
 
     (* Same logic as mul' except with a much deeper recursive call stack *)
     let rec pow' list1 list2 = 

@@ -1,0 +1,11 @@
+Joshua Sibayan
+jbsibaya@ucsc.edu
+1401498
+
+Notes after extensive testing and head bashing:
+
+Signed addition and subtraction work but leading columns of digit lists with more than one element will cause the solution to have a leading zero. I've also seen some negative zeroes, which is probably a bug pertaining to more than just these addition and subtraction
+
+Signed division works consistently only for single digit inputs. Multiplication works only until a fixed extent as well, stack overflow errors keep getting thrown when larger numbers get thrown around.
+
+Exponents that are too large either cause stack overflow or return progressively smaller values from what I've found, but the operation itself is functioning. Remainder works only for digits less than 10 and everything gets weird beyond that.
