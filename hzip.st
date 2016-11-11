@@ -260,7 +260,7 @@ dFlag ifTrue: [
     nl display.
 
     tFlag ifTrue: [
-        'Printing decode tree' display.
+        'Printing decoding tree' display.
         nl display.
     ]. 
 
@@ -297,89 +297,88 @@ readfile := FileStream open: infile
 writefile := FileStream open: outfile
                         mode: FileStream write.
 
-"Take input from frequency table"
-"Store table values in sorted collection as tuples"
+"Take input from table, store values in sorted collection as tuples"
 "Create a queue to sort collection by value"
-|frequencyTable|
-uFlag ifFalse: [frequencyTable := readfile parseFile.].
+|freqTable|
+uFlag ifFalse: [freqTable := readfile parseFile.].
 
 dFlag ifTrue: [
-    (0 to: frequencyTable size - 1)
+    (0 to: freqTable size - 1)
     do: [:index |
         index display.
         ' ' display.
-        item := frequencyTable at: index.
+        item := freqTable at: index.
         item display.
         nl display.
     ].
 ].
 
 "Define queue"
-|pq|
-pq := SortedCollection new.
+|queue|
+queue := SortedCollection new.
 
 uFlag ifFalse:[
-    (0 to: frequencyTable size - 1)
+    (0 to: freqTable size - 1)
     do: [ :index |
         |aLeaf aCount aChar|
-        aCount := frequencyTable at: index.
+        aCount := freqTable at: index.
         aCount isInteger ifTrue: [
             aChar := index asCharacter.
             aLeaf := Leaf new: aChar  count: aCount.
-            pq add: aLeaf.
+            queue add: aLeaf.
         ].
     ].
 ].
 
 dFlag ifTrue: [
-    pq inspect.
+    queue inspect.
 ].
 
 "Build tree using queue definition"
 uFlag ifFalse: [
-    [pq size > 1] whileTrue: [
-        |last seclast aTree treeChar treeCount|
-        last := pq removeFirst.
-        seclast := pq removeFirst.
-        treeChar := last char.
-        treeCount := last count + seclast count.
-        aTree := Tree new: treeChar count: treeCount left: last right: seclast.
-        pq add: aTree.
+    [queue size > 1] whileTrue: [
+        |leftChild rightChild aTree treeChar treeCount|
+        leftChild := queue popFirst.
+        rightChild := queue popFirst.
+        treeChar := leftChild char.
+        treeCount := leftChild count + rightChild count.
+        aTree := Tree new: treeChar count: treeCount left: leftChild right: rightChild.
+        queue add: aTree.
     ].
 ].
 
 dFlag ifTrue: [
-    pq inspect.
+    queue inspect.
 ].
 
-|theTree encodeTable|
+|theTree encTable|
 uFlag ifFalse: [
-    theTree := pq removeLast. 
+    theTree := queue removeLeftChild. 
 ].
 
-encodeTable := ZeroArray new: 257.
+encTable := ZeroArray new: 257.
 
 uFlag ifFalse: [
     theTree inorder: [:char :string |
         |index count|
         index := char asInteger.
-        encodeTable at: index put: string.
+        encTable at: index put: string.
     ] 
     prefix: ''.
 ].
 
 "Run compression algorithm, print decoding tree to stdout"
 tFlag ifTrue: [ 
-    (0 to: encodeTable size - 1)
+    (0 to: encTable size - 1)
     do: [:index |
-        |char great32 less127 count string|
-        great32 := index > 32.
-        less127 := index < 127.
-        count := frequencyTable at: index.
-        string := encodeTable at: index.
+        |char range1 range2 count string|
+        range1 := index > 32.
+        range2 := index < 127.
+        count := freqTable at: index.
+        string := encTable at: index.
 
         count isInteger ifTrue: [
-            great32 & less127 ifTrue: [
+            range1 & range2 ifTrue: [
                 char := index asCharacter.
                 stdout << char << ' ' << count << ' ' << string << nl.
             ] ifFalse: [
@@ -391,8 +390,6 @@ tFlag ifTrue: [
 ].
 
 "Compress input file, write to output file if specified"
-
-""
 cFlag ifTrue: [ 
     |encString|
     aBitstream := BitStream new: writefile.
@@ -403,11 +400,11 @@ cFlag ifTrue: [
     [readfile atEnd not] whileTrue: [
         |index|
         index := readfile next asInteger.
-        encString := (encodeTable at: index).
+        encString := (encTable at: index).
         aBitstream putString: encString.
     ].
 
-    encString := encodeTable at: 256.
+    encString := encTable at: 256.
     aBitstream putString: encString.
     aBitstream padOut.
     readfile close.
@@ -419,55 +416,55 @@ uFlag ifTrue: [
     outBitstream := BitStream new: readfile.
     inBitstream := BitStream new: writefile.
     stack := OrderedCollection new.
-    treeComplete := false.
-    decodeTree := nil.
+    treeWalk := false.
+    decTree := nil.
 
-    [(outBitstream atEnd not) & (treeComplete = false)] whileTrue: [
+    [(outBitstream atEnd not) & (treeWalk = false)] whileTrue: [
         |nextChar|
         nextChar := outBitstream nextBit.
         nextChar = 0 ifTrue: [
             realChar := 0.
-            basetwo := 1.
+            base2 := 1.
 
             (1 to: 8) do: [:skip |
-                |currbit|
-                currbit := outBitstream nextBit.
-                (currbit = 1)
-                    ifTrue: [realChar := realChar + basetwo.].
-                basetwo := basetwo *2.
+                |curBit|
+                curBit := outBitstream nextBit.
+                (curBit = 1)
+                    ifTrue: [realChar := realChar + base2.].
+                base2 := base2 *2.
             ].
 
             realChar = 0 ifTrue: [
-                |currbit|
-                currbit := outBitstream nextBit.
-                currbit = 1 ifTrue: [stack addFirst: (Leaf new: 256 asCharacter count: 1).]
-                            ifFalse: [stack addFirst: (Leaf new: 0 asCharacter count: 1).].
-            ] ifFalse: [stack addFirst: (Leaf new: realChar asCharacter count: 1).].
+                |curBit|
+                curBit := outBitstream nextBit.
+                curBit = 1 ifTrue: [stack pushFirst: (Leaf new: 256 asCharacter count: 1).]
+                            ifFalse: [stack pushFirst: (Leaf new: 0 asCharacter count: 1).].
+            ] ifFalse: [stack pushFirst: (Leaf new: realChar asCharacter count: 1).].
       
         ] ifFalse: [
             stack size > 0 ifTrue: [
-                right := stack removeFirst.
+                right := stack popFirst.
                 stack size = 0 ifTrue: [
-                    decodeTree := right.
-                    treeComplete := true.
+                    decTree := right.
+                    treeWalk := true.
                 ] ifFalse: [
-                    left := stack removeFirst.
-                    stack addFirst: (Tree new: (left char) count: 1 left: left right: right).
+                    left := stack popFirst.
+                    stack pushFirst: (Tree new: (left char) count: 1 left: left right: right).
                 ].
             ].
         ].
     ].
 
-    dFlag ifTrue: [decodeTree inspect.].
+    dFlag ifTrue: [decTree inspect.].
 
-    tempTree := decodeTree.
+    tempTree := decTree.
     eof := false.
 
     [(outBitstream atEnd not) & (eof = false)] whileTrue: [
-        |enbit|
-        enbit := outBitstream nextBit.
+        |endBit|
+        endBit := outBitstream nextBit.
 
-        enbit = 0 ifTrue: [
+        endBit = 0 ifTrue: [
             tempTree  isLeaf ifTrue: [
                 tempTree char asInteger = 256 ifTrue: [eof = true.].
             ] ifFalse: [
@@ -477,7 +474,7 @@ uFlag ifTrue: [
                         ifFalse: [
                             writefile << tempTree char.
                         ].
-                    tempTree := decodeTree.
+                    tempTree := decTree.
                 ].
             ].
 
@@ -491,7 +488,7 @@ uFlag ifTrue: [
                         ifFalse: [
                             writefile << tempTree char.
                         ].
-                    tempTree := decodeTree.
+                    tempTree := decTree.
                 ].
             ].
         ].
@@ -500,5 +497,3 @@ uFlag ifTrue: [
    readfile close.
    writefile close.
 ].
-
-
