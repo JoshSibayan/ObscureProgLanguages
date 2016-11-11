@@ -338,8 +338,8 @@ dFlag ifTrue: [
 uFlag ifFalse: [
     [queue size > 1] whileTrue: [
         |leftChild rightChild aTree treeChar treeCount|
-        leftChild := queue popFirst.
-        rightChild := queue popFirst.
+        leftChild := queue removeFirst.
+        rightChild := queue removeFirst.
         treeChar := leftChild char.
         treeCount := leftChild count + rightChild count.
         aTree := Tree new: treeChar count: treeCount left: leftChild right: rightChild.
@@ -353,7 +353,7 @@ dFlag ifTrue: [
 
 |theTree encTable|
 uFlag ifFalse: [
-    theTree := queue removeLeftChild. 
+    theTree := queue removeLast. 
 ].
 
 encTable := ZeroArray new: 257.
@@ -363,8 +363,7 @@ uFlag ifFalse: [
         |index count|
         index := char asInteger.
         encTable at: index put: string.
-    ] 
-    prefix: ''.
+    ] prefix: ''.
 ].
 
 "Run compression algorithm, print decoding tree to stdout"
@@ -437,19 +436,19 @@ uFlag ifTrue: [
             realChar = 0 ifTrue: [
                 |curBit|
                 curBit := outBitstream nextBit.
-                curBit = 1 ifTrue: [stack pushFirst: (Leaf new: 256 asCharacter count: 1).]
-                            ifFalse: [stack pushFirst: (Leaf new: 0 asCharacter count: 1).].
-            ] ifFalse: [stack pushFirst: (Leaf new: realChar asCharacter count: 1).].
+                curBit = 1 ifTrue: [stack addFirst: (Leaf new: 256 asCharacter count: 1).]
+                            ifFalse: [stack addFirst: (Leaf new: 0 asCharacter count: 1).].
+            ] ifFalse: [stack addFirst: (Leaf new: realChar asCharacter count: 1).].
       
         ] ifFalse: [
             stack size > 0 ifTrue: [
-                right := stack popFirst.
+                right := stack removeFirst.
                 stack size = 0 ifTrue: [
                     decTree := right.
                     treeWalk := true.
                 ] ifFalse: [
-                    left := stack popFirst.
-                    stack pushFirst: (Tree new: (left char) count: 1 left: left right: right).
+                    left := stack removeFirst.
+                    stack addFirst: (Tree new: (left char) count: 1 left: left right: right).
                 ].
             ].
         ].
