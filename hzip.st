@@ -1,5 +1,62 @@
 #!/afs/cats.ucsc.edu/courses/cmps112-wm/usr/smalltalk/bin/gst -f
 
+"Taken from bitstream.st example"
+"Added putBit, putString, padOut functions"
+Object subclass: BitStream [
+    |stringIndex bitIndex byte myStream writeIndex writeByte|
+
+    BitStream class >> new: fileStream [
+        |result|
+        result := super new.
+        result init: fileStream.
+        ^ result
+    ]
+
+    init: fileStream [
+        myStream := fileStream.
+        bitIndex := 1.
+        writeIndex := 9.
+        writeByte := 0.
+    ]
+
+    nextBit [
+        bitIndex = 1 ifTrue: [
+            byte := myStream next.
+            bitIndex := 9.
+        ].
+        bitIndex := bitIndex - 1.
+        ^ byte value bitAt: bitIndex
+    ]
+
+    putBit: theBit [
+        writeIndex := writeIndex - 1.
+        writeByte := writeByte bitAt: writeIndex put: theBit.
+        writeIndex = 1 ifTrue: [
+            myStream nextPutByte: writeByte.
+            writeByte := 0.
+            writeIndex := 9.
+        ].
+    ]
+
+    putString: theString [
+        theString do: [:index|
+            (index asString = '0')
+                ifTrue: [self putBit: 0]
+                ifFalse: [self putBit: 1].
+        ].
+    ]
+
+    padOut [
+        [writeIndex > 1 & writeIndex < 9] whileFalse: [ 
+            self putBit: 0. 
+            writeIndex := writeIndex - 1.].
+    ]
+
+    atEnd [
+        ^ bitIndex = 1 and: [myStream atEnd]
+    ]
+]
+
 "Taken from charfreq.st example"
 "Used to alleviate file parsing issues since smalltalk is non-zero indexed"
 Object subclass: ZeroArray [
@@ -69,63 +126,6 @@ FileStream extend [
         ].
         counttable incr: 256.
         ^counttable
-    ]
-]
-
-"Taken from bitstream.st example"
-"Added putBit, putString, padOut functions"
-Object subclass: BitStream [
-    |stringIndex bitIndex byte myStream writeIndex writeByte|
-
-    BitStream class >> new: fileStream [
-        |result|
-        result := super new.
-        result init: fileStream.
-        ^ result
-    ]
-
-    init: fileStream [
-        myStream := fileStream.
-        bitIndex := 1.
-        writeIndex := 9.
-        writeByte := 0.
-    ]
-
-    nextBit [
-        bitIndex = 1 ifTrue: [
-            byte := myStream next.
-            bitIndex := 9.
-        ].
-        bitIndex := bitIndex - 1.
-        ^ byte value bitAt: bitIndex
-    ]
-
-    putBit: theBit [
-        writeIndex := writeIndex - 1.
-        writeByte := writeByte bitAt: writeIndex put: theBit.
-        writeIndex = 1 ifTrue: [
-            myStream nextPutByte: writeByte.
-            writeByte := 0.
-            writeIndex := 9.
-        ].
-    ]
-
-    putString: theString [
-        theString do: [:index|
-            (index asString = '0')
-                ifTrue: [self putBit: 0]
-                ifFalse: [self putBit: 1].
-        ].
-    ]
-
-    padOut [
-        [writeIndex > 1 & writeIndex < 9] whileFalse: [ 
-            self putBit: 0. 
-            writeIndex := writeIndex - 1.].
-    ]
-
-    atEnd [
-        ^ bitIndex = 1 and: [myStream atEnd]
     ]
 ]
 
